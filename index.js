@@ -50,6 +50,7 @@ async function run() {
     // await client.connect();
 
     const userCollection = client.db("campDb").collection("users");
+    const classCollection = client.db("campDb").collection("classes");
 
     app.post("/jwt", (req, res) => {
       const user = req.body;
@@ -67,6 +68,26 @@ async function run() {
       if (existingUser) return res.send({ message: "already exists" });
 
       const result = await userCollection.insertOne(user);
+      res.send(result);
+    });
+
+    app.get("/allClasses", async (req, res) => {
+      const classes = await classCollection
+        .find()
+        .sort({ studentEnrolled: -1 })
+        .toArray();
+      res.send(classes);
+    });
+
+    app.patch("/makeAllInstructor", async (req, res) => {
+      const query = {};
+      const updateDoc = {
+        $set: {
+          isInstructor: true,
+        },
+      };
+
+      const result = await userCollection.updateMany(query, updateDoc);
       res.send(result);
     });
 
