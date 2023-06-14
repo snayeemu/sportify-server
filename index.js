@@ -61,6 +61,13 @@ async function run() {
       res.send({ token });
     });
 
+    app.get("/userInfo/:email", async (req, res) => {
+      const email = req.params.email;
+      const query = { email: email };
+      const result = await userCollection.findOne(query);
+      res.send(result);
+    });
+
     app.post("/users", async (req, res) => {
       const user = req.body;
       const query = { email: user.email };
@@ -79,15 +86,65 @@ async function run() {
       res.send(classes);
     });
 
-    app.patch("/makeAllInstructor", async (req, res) => {
-      const query = {};
-      const updateDoc = {
-        $set: {
-          isInstructor: true,
-        },
-      };
+    app.get("/allInstructors", async (req, res) => {
+      const query = { isInstructor: true };
+      const instructors = await userCollection.find(query).toArray();
+      res.send(instructors);
+    });
 
-      const result = await userCollection.updateMany(query, updateDoc);
+    // app.patch("/makeAllInstructor", async (req, res) => {
+    //   const query = {};
+    //   const updateDoc = {
+    //     $set: {
+    //       isInstructor: true,
+    //     },
+    //   };
+    //   const result = await userCollection.updateMany(query, updateDoc);
+    //   res.send(result);
+    // });
+
+    app.patch("/addClass", async (req, res) => {
+      const classId = req.query.classId;
+      const userEmail = req.query.userEmail;
+      const userQuery = { email: userEmail };
+      let user = await userCollection.findOne(userQuery);
+      if (user?.takenClass) {
+        const previousClass = user.takenClass;
+        user = {
+          $set: {
+            takenClass: [...previousClass, classId],
+          },
+        };
+      } else if (user) {
+        user = {
+          $set: {
+            takenClass: [classId],
+          },
+        };
+      } else return res.send({ error: "user not found" });
+
+      const result = await userCollection.updateOne(userQuery, user);
+      res.send(result);
+    });
+
+    app.patch("/updateClass/:id", async (req, res) => {
+      const classId = req.params.id;
+      const query = { _id: new ObjectId(classId) };
+      let aClass = await classCollection.findOne(query);
+      if (aClass && aClass?.availableSeat > 1) {
+        const previousSeat = aClass.availableSeat;
+        const previousEnrolled = aClass.studentEnrolled;
+        aClass = {
+          $set: {
+            availableSeat: previousSeat - 1,
+            studentEnrolled: previousEnrolled + 1,
+          },
+        };
+      } else if (aClass && aClass?.availableSeat === 0) {
+        return res.send({ error: "seat not available" });
+      } else return res.send({ error: "class not found" });
+
+      const result = await classCollection.updateOne(query, aClass);
       res.send(result);
     });
 
