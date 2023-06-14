@@ -77,6 +77,11 @@ async function run() {
       res.send(classes);
     });
 
+    app.get("/allUsers", async (req, res) => {
+      const users = await userCollection.find().toArray();
+      res.send(users);
+    });
+
     app.get("/aClass/:id", async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
@@ -160,6 +165,38 @@ async function run() {
       res.send(deleteResult);
     });
 
+    app.patch("/makeInstructor", async (req, res) => {
+      const email = req.query.email;
+      const userQuery = { email: email };
+      let user = await userCollection.findOne(userQuery);
+      if (user) {
+        user = {
+          $set: {
+            isInstructor: true,
+          },
+        };
+      } else return res.send({ error: "user not found" });
+
+      const result = await userCollection.updateOne(userQuery, user);
+      res.send(result);
+    });
+
+    app.patch("/makeAdmin", async (req, res) => {
+      const email = req.query.email;
+      const userQuery = { email: email };
+      let user = await userCollection.findOne(userQuery);
+      if (user) {
+        user = {
+          $set: {
+            isAdmin: true,
+          },
+        };
+      } else return res.send({ error: "user not found" });
+
+      const result = await userCollection.updateOne(userQuery, user);
+      res.send(result);
+    });
+
     app.patch("/updateClass/:id", async (req, res) => {
       const classId = req.params.id;
       const query = { _id: new ObjectId(classId) };
@@ -188,11 +225,27 @@ async function run() {
       const query = { _id: new ObjectId(classId) };
       let aClass = await classCollection.findOne(query);
       if (aClass) {
-        const previousSeat = aClass.availableSeat;
-        const previousEnrolled = aClass.studentEnrolled;
         aClass = {
           $set: {
             status: status,
+          },
+        };
+      } else return res.send({ error: "class not found" });
+
+      const result = await classCollection.updateOne(query, aClass);
+      res.send(result);
+    });
+
+    app.patch("/feedback", async (req, res) => {
+      const feedbackIfo = req.body;
+      const classId = feedbackIfo.id;
+      const feedback = feedbackIfo.feedback;
+      const query = { _id: new ObjectId(classId) };
+      let aClass = await classCollection.findOne(query);
+      if (aClass) {
+        aClass = {
+          $set: {
+            feedback: feedback,
           },
         };
       } else return res.send({ error: "class not found" });
