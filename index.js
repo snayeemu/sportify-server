@@ -84,6 +84,12 @@ async function run() {
       res.send(result);
     });
 
+    app.get("/allInstructors", async (req, res) => {
+      const query = { isInstructor: true };
+      const instructors = await userCollection.find(query).toArray();
+      res.send(instructors);
+    });
+
     app.post("/users", async (req, res) => {
       const user = req.body;
       const query = { email: user.email };
@@ -92,12 +98,6 @@ async function run() {
 
       const result = await userCollection.insertOne(user);
       res.send(result);
-    });
-
-    app.get("/allInstructors", async (req, res) => {
-      const query = { isInstructor: true };
-      const instructors = await userCollection.find(query).toArray();
-      res.send(instructors);
     });
 
     // app.patch("/makeAllInstructor", async (req, res) => {
@@ -133,6 +133,24 @@ async function run() {
 
       const result = await userCollection.updateOne(userQuery, user);
       res.send(result);
+    });
+
+    app.patch("/deleteClass", async (req, res) => {
+      const classId = req.query.classId;
+      const email = req.query.userEmail;
+      const userQuery = { email: email };
+      let user = await userCollection.findOne(userQuery);
+      if (user) {
+        const previousClasses = user.takenClass;
+        user = {
+          $set: {
+            takenClass: previousClasses.filter((id) => id !== classId),
+          },
+        };
+      } else return res.send({ error: "user not found" });
+
+      const deleteResult = await userCollection.updateOne(userQuery, user);
+      res.send(deleteResult);
     });
 
     app.patch("/updateClass/:id", async (req, res) => {
