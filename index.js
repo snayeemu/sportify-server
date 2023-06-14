@@ -100,6 +100,13 @@ async function run() {
       res.send(result);
     });
 
+    app.post("/addClass", async (req, res) => {
+      const aClass = req.body;
+
+      const result = await classCollection.insertOne(aClass);
+      res.send(result);
+    });
+
     // app.patch("/makeAllInstructor", async (req, res) => {
     //   const query = {};
     //   const updateDoc = {
@@ -168,6 +175,26 @@ async function run() {
         };
       } else if (aClass && aClass?.availableSeat === 0) {
         return res.send({ error: "seat not available" });
+      } else return res.send({ error: "class not found" });
+
+      const result = await classCollection.updateOne(query, aClass);
+      res.send(result);
+    });
+
+    app.patch("/updateStatus", async (req, res) => {
+      const classId = req.query.classId;
+      const status = req.query.status;
+      console.log(classId);
+      const query = { _id: new ObjectId(classId) };
+      let aClass = await classCollection.findOne(query);
+      if (aClass) {
+        const previousSeat = aClass.availableSeat;
+        const previousEnrolled = aClass.studentEnrolled;
+        aClass = {
+          $set: {
+            status: status,
+          },
+        };
       } else return res.send({ error: "class not found" });
 
       const result = await classCollection.updateOne(query, aClass);
