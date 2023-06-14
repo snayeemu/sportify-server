@@ -51,11 +51,12 @@ async function run() {
 
     const userCollection = client.db("campDb").collection("users");
     const classCollection = client.db("campDb").collection("classes");
+    const paymentCollection = client.db("campDb").collection("payments");
 
     app.post("/jwt", (req, res) => {
       const user = req.body;
       const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
-        expiresIn: "1h",
+        expiresIn: "1w",
       });
 
       res.send({ token });
@@ -68,6 +69,21 @@ async function run() {
       res.send(result);
     });
 
+    app.get("/allClasses", async (req, res) => {
+      const classes = await classCollection
+        .find()
+        .sort({ studentEnrolled: -1 })
+        .toArray();
+      res.send(classes);
+    });
+
+    app.get("/aClass/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await classCollection.findOne(query);
+      res.send(result);
+    });
+
     app.post("/users", async (req, res) => {
       const user = req.body;
       const query = { email: user.email };
@@ -76,14 +92,6 @@ async function run() {
 
       const result = await userCollection.insertOne(user);
       res.send(result);
-    });
-
-    app.get("/allClasses", async (req, res) => {
-      const classes = await classCollection
-        .find()
-        .sort({ studentEnrolled: -1 })
-        .toArray();
-      res.send(classes);
     });
 
     app.get("/allInstructors", async (req, res) => {
@@ -146,6 +154,48 @@ async function run() {
 
       const result = await classCollection.updateOne(query, aClass);
       res.send(result);
+    });
+
+    const calculateOrderAmount = (items) => {
+      // Replace this constant with a calculation of the order's amount
+      // Calculate the order total on the server to prevent
+      // people from directly manipulating the amount on the client
+      return items * 100;
+    };
+
+    app.post("/create-payment-intent", verifyJWT, async (req, res) => {
+      const { price } = req.body;
+
+      // Create a PaymentIntent with the order amount and currency
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: calculateOrderAmount(price),
+        currency: "usd",
+        payment_method_types: ["card"],
+      });
+
+      res.send({
+        clientSecret: paymentIntent.client_secret,
+      });
+    });
+
+    app.post("/payments", verifyJWT, async (req, res) => {
+      const payment = req.body;
+      const insertResult = await paymentCollection.insertOne(payment);
+      const userQuery = { email: payment.email };
+      let user = await userCollection.findOne(userQuery);
+
+      if (user) {
+        const previousClasses = user.takenClass;
+        user = {
+          $set: {
+            takenClass: previousClasses.filter((id) => id !== payment.classId),
+          },
+        };
+      } else return res.send({ error: "user not found" });
+
+      const deleteResult = await userCollection.updateOne(userQuery, user);
+
+      res.send({ insertResult, deleteResult });
     });
 
     // Send a ping to confirm a successful connection]
