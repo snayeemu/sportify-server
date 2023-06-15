@@ -89,6 +89,20 @@ async function run() {
       res.send(result);
     });
 
+    app.get("/classes/:email", async (req, res) => {
+      const email = req.params.email;
+      const query = { email: email };
+      const user = await userCollection.findOne(query);
+      const classes = await classCollection.find().toArray();
+      let result;
+      if (user?.enrolledClass) {
+        result = classes.filter((aClass) =>
+          user.enrolledClass.includes(aClass._id + "")
+        );
+      } else result = [];
+      res.send(result);
+    });
+
     app.get("/allInstructors", async (req, res) => {
       const query = { isInstructor: true };
       const instructors = await userCollection.find(query).toArray();
@@ -199,6 +213,7 @@ async function run() {
 
     app.patch("/updateClass/:id", async (req, res) => {
       const classId = req.params.id;
+      console.log(classId);
       const query = { _id: new ObjectId(classId) };
       let aClass = await classCollection.findOne(query);
       if (aClass && aClass?.availableSeat > 1) {
@@ -221,7 +236,6 @@ async function run() {
     app.patch("/updateStatus", async (req, res) => {
       const classId = req.query.classId;
       const status = req.query.status;
-      console.log(classId);
       const query = { _id: new ObjectId(classId) };
       let aClass = await classCollection.findOne(query);
       if (aClass) {
@@ -284,9 +298,11 @@ async function run() {
 
       if (user) {
         const previousClasses = user.takenClass;
+        const enrolledClass = user?.enrolledClass || [];
         user = {
           $set: {
             takenClass: previousClasses.filter((id) => id !== payment.classId),
+            enrolledClass: [...enrolledClass, payment.classId],
           },
         };
       } else return res.send({ error: "user not found" });
